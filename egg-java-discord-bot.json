@@ -1,0 +1,73 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-05-14T00:00:00+00:00",
+    "name": "Java Discord Bot",
+    "author": "casperbekkersiscool@gmail.com",
+    "description": "Runs a JDA-based Java Discord bot. Upload your compiled JAR via SFTP, or set GIT_REPO to auto-build from a Git repository during installation.",
+    "features": null,
+    "docker_images": {
+        "Java 17": "ghcr.io/pterodactyl/yolks:java_17",
+        "Java 21": "ghcr.io/pterodactyl/yolks:java_21"
+    },
+    "file_denylist": [],
+    "startup": "java -Xms128M -Xmx{{MAX_MEMORY}}M -jar {{JAR_FILE}}",
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"Bot is online\"}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/ash\nset -e\n\napk update\napk add --no-cache git curl\n\ncd /mnt/server\n\nif [ -n \"${GIT_REPO}\" ]; then\n    echo \">>> Cloning ${GIT_REPO}...\"\n    git clone \"${GIT_REPO}\" /tmp/bot-src\n    cd /tmp/bot-src\n\n    echo \">>> Downloading Maven...\"\n    curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar -xz -C /opt\n    export PATH=\"/opt/apache-maven-3.9.6/bin:$PATH\"\n\n    echo \">>> Building project...\"\n    mvn package -DskipTests --no-transfer-progress\n\n    echo \">>> Copying JAR to server directory...\"\n    cp target/*.jar /mnt/server/\n\n    echo \">>> Build complete. JAR files:\"\n    ls /mnt/server/*.jar\nelse\n    echo \">>> No GIT_REPO set.\"\n    echo \">>> Upload your compiled JAR via SFTP to the server directory.\"\n    echo \">>> Run: mvn package   then upload target/music-bot-1.0-SNAPSHOT.jar\"\nfi\n\necho \">>> Installation finished.\"",
+            "container": "ghcr.io/pterodactyl/yolks:java_17",
+            "entrypoint": "ash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Discord Bot Token",
+            "description": "Your Discord bot token from https://discord.com/developers/applications. Required to connect to Discord.",
+            "env_variable": "DISCORD_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "JAR File Name",
+            "description": "The filename of the compiled JAR to run. Must be in the server's root directory.",
+            "env_variable": "JAR_FILE",
+            "default_value": "music-bot-1.0-SNAPSHOT.jar",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Max Memory (MB)",
+            "description": "Maximum heap memory allocated to the JVM in megabytes.",
+            "env_variable": "MAX_MEMORY",
+            "default_value": "512",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|min:128",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Repository URL",
+            "description": "(Optional) Public Git repo URL to clone and auto-build during installation. Leave blank to upload your JAR manually via SFTP.",
+            "env_variable": "GIT_REPO",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        }
+    ]
+}
