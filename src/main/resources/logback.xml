@@ -5,6 +5,9 @@
         </encoder>
     </appender>
 
+    <!-- Ensure OAuth authorization URL is always printed clearly -->
+    <logger name="dev.lavalink.youtube.http.YoutubeOauth2Handler" level="INFO" />
+
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
