@@ -21,7 +21,7 @@ public class YtDlpExtractor {
 
         List<String> baseArgs = baseArgs();
         baseArgs.add("-f");
-        baseArgs.add("bestaudio");
+        baseArgs.add("bestaudio/best");
         baseArgs.add("--print");
         baseArgs.add("%(title)s");
         baseArgs.add("--print");
@@ -77,11 +77,16 @@ public class YtDlpExtractor {
         args.add("--no-playlist");
         args.add("--quiet");
         args.add("--no-warnings");
-        args.add("--extractor-args");
-        args.add("youtube:player_client=android,android_embedded,web");
-        if (new File(COOKIES_FILE).exists()) {
+        boolean hasCookies = new File(COOKIES_FILE).exists();
+        if (hasCookies) {
+            // Web client has full format support when authenticated via cookies
             args.add("--cookies");
             args.add(COOKIES_FILE);
+        } else {
+            // Android client bypasses bot detection when no cookies are available,
+            // but may have limited format availability
+            args.add("--extractor-args");
+            args.add("youtube:player_client=android,android_embedded,web");
         }
         return args;
     }
