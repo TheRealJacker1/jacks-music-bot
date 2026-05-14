@@ -10,8 +10,8 @@ import java.util.stream.Collectors;
 
 public class BotListener extends ListenerAdapter {
 
-    private static final String PREFIX = "!";
     private final ChannelConfig channelConfig = new ChannelConfig();
+    private final PrefixConfig prefixConfig = new PrefixConfig();
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
@@ -19,17 +19,17 @@ public class BotListener extends ListenerAdapter {
         if (!event.isFromGuild()) return;
 
         String guildId = event.getGuild().getId();
+        String prefix = prefixConfig.getPrefix(guildId);
+        String content = event.getMessage().getContentRaw();
+
+        if (!content.startsWith(prefix)) return;
+
+        String command = content.substring(prefix.length()).trim().toLowerCase();
         String channelId = event.getChannel().getId();
 
-        String content = event.getMessage().getContentRaw();
-        if (!content.startsWith(PREFIX)) return;
-
-        String command = content.substring(PREFIX.length()).trim().toLowerCase();
-
-        // Channel config commands bypass the allowlist so admins can always manage it
-        if (command.startsWith("allowchannel") || command.startsWith("removechannel")
-                || command.equals("allowedchannels") || command.equals("allowall")) {
-            handleAdminCommand(event, command, guildId);
+        // Admin commands bypass the channel allowlist
+        if (isAdminCommand(command)) {
+            handleAdminCommand(event, command, guildId, prefix);
             return;
         }
 
@@ -38,27 +38,49 @@ public class BotListener extends ListenerAdapter {
         switch (command) {
             case "ping" -> event.getChannel().sendMessage("Pong!").queue();
             case "hello" -> event.getChannel().sendMessage("Hello, " + event.getAuthor().getAsMention() + "!").queue();
-            case "help" -> event.getChannel().sendMessage("""
-                    **Commands:**
-                    `!ping` — check if the bot is alive
-                    `!hello` — say hello
-                    `!help` — show this message
-
-                    **Admin commands** (requires Manage Channels):
-                    `!allowchannel` — restrict bot to this channel
-                    `!allowchannel #channel` — restrict bot to a mentioned channel
-                    `!removechannel` — remove this channel from the allowlist
-                    `!removechannel #channel` — remove a mentioned channel
-                    `!allowedchannels` — list all allowed channels
-                    `!allowall` — remove all restrictions
-                    """).queue();
-            default -> event.getChannel().sendMessage("Unknown command. Try `!help`.").queue();
+            case "help" -> event.getChannel().sendMessage(
+                    "**Commands** (prefix: `" + prefix + "`)\n" +
+                    "`" + prefix + "ping` — check if the bot is alive\n" +
+                    "`" + prefix + "hello` — say hello\n" +
+                    "`" + prefix + "help` — show this message\n\n" +
+                    "**Admin commands** (requires Manage Server):\n" +
+                    "`" + prefix + "setprefix <prefix>` — change the command prefix\n" +
+                    "`" + prefix + "resetprefix` — reset prefix back to `!`\n" +
+                    "`" + prefix + "allowchannel [#channel]` — restrict bot to a channel\n" +
+                    "`" + prefix + "removechannel [#channel]` — remove a channel from the allowlist\n" +
+                    "`" + prefix + "allowedchannels` — list allowed channels\n" +
+                    "`" + prefix + "allowall` — remove all channel restrictions"
+            ).queue();
+            default -> event.getChannel().sendMessage("Unknown command. Try `" + prefix + "help`.").queue();
         }
     }
 
-    private void handleAdminCommand(MessageReceivedEvent event, String command, String guildId) {
-        if (!event.getMember().hasPermission(Permission.MANAGE_CHANNEL)) {
-            event.getChannel().sendMessage("You need the **Manage Channels** permission to use this command.").queue();
+    private boolean isAdminCommand(String command) {
+        return command.startsWith("setprefix") || command.equals("resetprefix")
+                || command.startsWith("allowchannel") || command.startsWith("removechannel")
+                || command.equals("allowedchannels") || command.equals("allowall");
+    }
+
+    private void handleAdminCommand(MessageReceivedEvent event, String command, String guildId, String prefix) {
+        if (!event.getMember().hasPermission(Permission.MANAGE_SERVER)) {
+            event.getChannel().sendMessage("You need the **Manage Server** permission to use this command.").queue();
+            return;
+        }
+
+        if (command.startsWith("setprefix ")) {
+            String newPrefix = command.substring("setprefix ".length()).trim();
+            if (newPrefix.isEmpty() || newPrefix.length() > 5) {
+                event.getChannel().sendMessage("Prefix must be between 1 and 5 characters.").queue();
+                return;
+            }
+            prefixConfig.setPrefix(guildId, newPrefix);
+            event.getChannel().sendMessage("Prefix changed to `" + newPrefix + "`").queue();
+            return;
+        }
+
+        if (command.equals("resetprefix")) {
+            prefixConfig.resetPrefix(guildId);
+            event.getChannel().sendMessage("Prefix reset to `!`").queue();
             return;
         }
 
@@ -67,9 +89,7 @@ public class BotListener extends ListenerAdapter {
             if (channels.isEmpty()) {
                 event.getChannel().sendMessage("No restrictions set — the bot responds in **all channels**.").queue();
             } else {
-                String list = channels.stream()
-                        .map(id -> "<#" + id + ">")
-                        .collect(Collectors.joining(", "));
+                String list = channels.stream().map(id -> "<#" + id + ">").collect(Collectors.joining(", "));
                 event.getChannel().sendMessage("Bot is allowed in: " + list).queue();
             }
             return;
