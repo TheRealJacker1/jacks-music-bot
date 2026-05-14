@@ -7,18 +7,12 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-import dev.lavalink.youtube.YoutubeAudioSourceManager;
-import dev.lavalink.youtube.clients.Tv;
-import dev.lavalink.youtube.clients.TvHtml5Simply;
-import dev.lavalink.youtube.clients.Web;
-import dev.lavalink.youtube.clients.MWeb;
-import dev.lavalink.youtube.clients.Android;
-import dev.lavalink.youtube.clients.AndroidMusic;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public class MusicManager {
 
@@ -29,30 +23,7 @@ public class MusicManager {
 
     private MusicManager() {
         playerManager = new DefaultAudioPlayerManager();
-
-        // Try every client — Tv is OAuth-compatible, rest are fallbacks
-        YoutubeAudioSourceManager youtubeSource = new YoutubeAudioSourceManager(
-                true, new Tv(), new TvHtml5Simply(), new Web(), new MWeb(), new Android(), new AndroidMusic()
-        );
-        String oauthToken = System.getenv("YOUTUBE_OAUTH_TOKEN");
-        if (oauthToken != null && !oauthToken.isBlank()) {
-            System.out.println("[YouTube] Using saved OAuth token.");
-            youtubeSource.useOauth2(oauthToken, true);
-        } else {
-            System.out.println("=================================================");
-            System.out.println("  YOUTUBE OAUTH SETUP REQUIRED");
-            System.out.println("  Watch for a URL + code below from the library.");
-            System.out.println("  Open the URL, enter the code, authorize it.");
-            System.out.println("  Then copy the refresh token that gets printed");
-            System.out.println("  and save it as YOUTUBE_OAUTH_TOKEN in Pterodactyl");
-            System.out.println("  Startup tab, then restart the server.");
-            System.out.println("=================================================");
-            youtubeSource.useOauth2(null, false);
-        }
-
-        playerManager.registerSourceManager(youtubeSource);
-        AudioSourceManagers.registerRemoteSources(playerManager,
-                com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager.class);
+        AudioSourceManagers.registerRemoteSources(playerManager);
         AudioSourceManagers.registerLocalSource(playerManager);
     }
 
@@ -72,39 +43,54 @@ public class MusicManager {
     public void loadAndPlay(TextChannel channel, Guild guild, String input) {
         GuildMusicManager musicManager = getGuildMusicManager(guild);
 
-        // Treat non-URLs as YouTube searches
-        String query = input.startsWith("http://") || input.startsWith("https://")
-                ? input
-                : "ytsearch:" + input;
+        channel.sendMessage("Searching...").queue();
 
-        playerManager.loadItemOrdered(musicManager, query, new AudioLoadResultHandler() {
-            @Override
-            public void trackLoaded(AudioTrack track) {
-                musicManager.scheduler.queue(track);
-                channel.sendMessage("Added to queue: **" + track.getInfo().title + "**").queue();
-            }
-
-            @Override
-            public void playlistLoaded(AudioPlaylist playlist) {
-                if (playlist.isSearchResult()) {
-                    AudioTrack track = playlist.getTracks().get(0);
-                    musicManager.scheduler.queue(track);
-                    channel.sendMessage("Added to queue: **" + track.getInfo().title + "**").queue();
-                } else {
-                    playlist.getTracks().forEach(musicManager.scheduler::queue);
-                    channel.sendMessage("Added **" + playlist.getTracks().size()
-                            + "** tracks from playlist: **" + playlist.getName() + "**").queue();
+        CompletableFuture.runAsync(() -> {
+            try {
+                YtDlpExtractor.TrackInfo info = YtDlpExtractor.extract(input);
+                if (info == null) {
+                    channel.sendMessage("No results found for: `" + input + "`").queue();
+                    return;
                 }
-            }
 
-            @Override
-            public void noMatches() {
-                channel.sendMessage("No results found for: `" + input + "`").queue();
-            }
+                final String title = info.title();
 
-            @Override
-            public void loadFailed(FriendlyException exception) {
-                channel.sendMessage("Could not load track: " + exception.getMessage()).queue();
+                playerManager.loadItemOrdered(musicManager, info.streamUrl(), new AudioLoadResultHandler() {
+                    @Override
+                    public void trackLoaded(AudioTrack track) {
+                        track.setUserData(title);
+                        musicManager.scheduler.queue(track);
+                        channel.sendMessage("Added to queue: **" + title + "**").queue();
+                    }
+
+                    @Override
+                    public void playlistLoaded(AudioPlaylist playlist) {
+                        if (!playlist.getTracks().isEmpty()) {
+                            AudioTrack track = playlist.getTracks().get(0);
+                            track.setUserData(title);
+                            musicManager.scheduler.queue(track);
+                            channel.sendMessage("Added to queue: **" + title + "**").queue();
+                        }
+                    }
+
+                    @Override
+                    public void noMatches() {
+                        channel.sendMessage("Could not load audio. Try a different search.").queue();
+                    }
+
+                    @Override
+                    public void loadFailed(FriendlyException exception) {
+                        channel.sendMessage("Failed to play track: " + exception.getMessage()).queue();
+                    }
+                });
+
+            } catch (Exception e) {
+                String msg = e.getMessage();
+                if (msg != null && (msg.contains("No such file") || msg.contains("error=2"))) {
+                    channel.sendMessage("yt-dlp not found. Please reinstall the server.").queue();
+                } else {
+                    channel.sendMessage("Error loading track: " + msg).queue();
+                }
             }
         });
     }

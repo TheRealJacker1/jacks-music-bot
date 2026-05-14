@@ -120,13 +120,13 @@ public class BotListener extends ListenerAdapter {
 
         StringBuilder sb = new StringBuilder();
         if (current != null) {
-            sb.append("**Now playing:** ").append(current.getInfo().title).append("\n\n");
+            sb.append("**Now playing:** ").append(trackTitle(current)).append("\n\n");
         }
         if (!queue.isEmpty()) {
             sb.append("**Up next:**\n");
             int limit = Math.min(queue.size(), 10);
             for (int i = 0; i < limit; i++) {
-                sb.append("`").append(i + 1).append(".` ").append(queue.get(i).getInfo().title).append("\n");
+                sb.append("`").append(i + 1).append(".` ").append(trackTitle(queue.get(i))).append("\n");
             }
             if (queue.size() > 10) {
                 sb.append("*...and ").append(queue.size() - 10).append(" more*");
@@ -145,7 +145,7 @@ public class BotListener extends ListenerAdapter {
         long pos = track.getPosition() / 1000;
         long len = track.getDuration() / 1000;
         event.getChannel().sendMessage(
-                "**Now playing:** " + track.getInfo().title
+                "**Now playing:** " + trackTitle(track)
                 + "\n" + formatTime(pos) + " / " + formatTime(len)
         ).queue();
     }
@@ -175,6 +175,12 @@ public class BotListener extends ListenerAdapter {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static String trackTitle(AudioTrack track) {
+        Object userData = track.getUserData();
+        if (userData instanceof String s) return s;
+        return track.getInfo().title;
+    }
 
     private boolean joinVoiceChannel(MessageReceivedEvent event) {
         GuildVoiceState voiceState = event.getMember().getVoiceState();
