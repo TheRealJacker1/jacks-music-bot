@@ -1,11 +1,10 @@
 package com.musicbot;
 
-import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 public class YtDlpExtractor {
 
@@ -16,12 +15,15 @@ public class YtDlpExtractor {
                 ? query
                 : "ytsearch1:" + query;
 
+        // --print outputs title and duration, -g outputs the stream URL
         ProcessBuilder pb = new ProcessBuilder(
                 "./yt-dlp",
                 "--no-playlist",
                 "--no-warnings",
                 "-f", "bestaudio[ext=webm][acodec=opus]/bestaudio[acodec=opus]/bestaudio",
-                "-j",
+                "--print", "%(title)s",
+                "--print", "%(duration)s",
+                "-g",
                 ytQuery
         );
         pb.directory(new File("."));
@@ -29,25 +31,33 @@ public class YtDlpExtractor {
 
         Process process = pb.start();
 
-        String output;
+        List<String> lines = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            output = reader.lines().collect(Collectors.joining("\n")).trim();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty()) lines.add(trimmed);
+            }
         }
         process.waitFor();
 
-        if (output.isEmpty()) return null;
+        // Expect at least 3 lines: title, duration, stream URL
+        if (lines.size() < 3) return null;
 
-        // For ytsearch results yt-dlp may return the playlist wrapper; take first line
-        String firstLine = output.lines().filter(l -> l.startsWith("{")).findFirst().orElse(null);
-        if (firstLine == null) return null;
+        String title    = lines.get(0);
+        long durationMs = parseDuration(lines.get(1));
+        String url      = lines.get(lines.size() - 1); // URL is always last
 
-        JSONObject json = new JSONObject(firstLine);
-        String title    = json.optString("title", "Unknown title");
-        double duration = json.optDouble("duration", 0);
-        String url      = json.optString("url", "");
+        if (!url.startsWith("http")) return null;
 
-        if (url.isEmpty()) return null;
+        return new TrackInfo(title, url, durationMs);
+    }
 
-        return new TrackInfo(title, url, (long)(duration * 1000));
+    private static long parseDuration(String raw) {
+        try {
+            return (long)(Double.parseDouble(raw) * 1000);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }
