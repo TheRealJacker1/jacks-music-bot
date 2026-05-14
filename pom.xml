@@ -20,6 +20,11 @@
             <id>lavalink</id>
             <url>https://maven.lavalink.dev/releases</url>
         </repository>
+        <repository>
+            <id>lavalink-snapshots</id>
+            <url>https://maven.lavalink.dev/snapshots</url>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -41,7 +46,7 @@
         <dependency>
             <groupId>dev.lavalink.youtube</groupId>
             <artifactId>v2</artifactId>
-            <version>1.18.1</version>
+            <version>9d4dbeeb51f16d53078486d69d27654d4acfa7fb-SNAPSHOT</version>
         </dependency>
 
         <!-- SLF4J logging -->
