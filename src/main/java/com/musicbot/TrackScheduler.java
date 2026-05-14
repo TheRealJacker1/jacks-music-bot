@@ -2,6 +2,7 @@ package com.musicbot;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 
@@ -14,9 +15,11 @@ public class TrackScheduler extends AudioEventAdapter {
 
     public final AudioPlayer player;
     public final Queue<AudioTrack> queue = new LinkedBlockingQueue<>();
+    private final GuildMusicManager manager;
 
-    public TrackScheduler(AudioPlayer player) {
-        this.player = player;
+    public TrackScheduler(AudioPlayer player, GuildMusicManager manager) {
+        this.player  = player;
+        this.manager = manager;
     }
 
     public void queue(AudioTrack track) {
@@ -43,5 +46,32 @@ public class TrackScheduler extends AudioEventAdapter {
         if (endReason.mayStartNext) {
             skip();
         }
+    }
+
+    @Override
+    public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
+        System.err.println("[Music] Playback error for \"" + getTitle(track) + "\": " + exception.getMessage());
+        if (manager.boundChannel != null) {
+            manager.boundChannel.sendMessage(
+                "Failed to play **" + getTitle(track) + "**: " + exception.getMessage()
+            ).queue();
+        }
+    }
+
+    @Override
+    public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
+        System.err.println("[Music] Track stuck: " + getTitle(track));
+        if (manager.boundChannel != null) {
+            manager.boundChannel.sendMessage(
+                "Track got stuck, skipping: **" + getTitle(track) + "**"
+            ).queue();
+        }
+        skip();
+    }
+
+    private static String getTitle(AudioTrack track) {
+        Object userData = track.getUserData();
+        if (userData instanceof String s) return s;
+        return track.getInfo().title;
     }
 }

@@ -42,6 +42,7 @@ public class MusicManager {
 
     public void loadAndPlay(TextChannel channel, Guild guild, String input) {
         GuildMusicManager musicManager = getGuildMusicManager(guild);
+        musicManager.boundChannel = channel;
 
         channel.sendMessage("Searching...").queue();
 
