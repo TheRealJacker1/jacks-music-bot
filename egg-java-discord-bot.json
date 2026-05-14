@@ -63,7 +63,7 @@
             "name": "Git Repository URL",
             "description": "(Optional) Public Git repo URL to clone and auto-build during installation. Leave blank to upload your JAR manually via SFTP.",
             "env_variable": "GIT_REPO",
-            "default_value": "",
+            "default_value": "https://github.com/TheRealJacker1/jacks-music-bot.git",
             "user_viewable": true,
             "user_editable": true,
             "rules": "nullable|string",
