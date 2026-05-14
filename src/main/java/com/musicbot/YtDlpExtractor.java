@@ -20,8 +20,9 @@ public class YtDlpExtractor {
                 : "ytsearch1:" + query;
 
         List<String> baseArgs = baseArgs();
+        // Most permissive format chain: try audio-only, then any combined, then anything with audio
         baseArgs.add("-f");
-        baseArgs.add("bestaudio/best");
+        baseArgs.add("bestaudio[acodec!=none]/bestaudio*/best[acodec!=none]/best/worst");
         baseArgs.add("--print");
         baseArgs.add("%(title)s");
         baseArgs.add("--print");
@@ -71,21 +72,29 @@ public class YtDlpExtractor {
 
     // ── internals ─────────────────────────────────────────────────────────────
 
+    private static boolean cookiesLogged = false;
+
     private static List<String> baseArgs() {
         List<String> args = new ArrayList<>();
         args.add("./yt-dlp");
         args.add("--no-playlist");
         args.add("--quiet");
         args.add("--no-warnings");
-        if (new File(COOKIES_FILE).exists()) {
-            // Web client with cookies has full format access — no extractor-args needed
+        File cookiesFile = new File(COOKIES_FILE);
+        boolean hasCookies = cookiesFile.exists();
+        if (!cookiesLogged) {
+            cookiesLogged = true;
+            System.out.println("[yt-dlp] cookies file " + cookiesFile.getAbsolutePath()
+                    + " exists=" + hasCookies
+                    + (hasCookies ? " size=" + cookiesFile.length() : ""));
+        }
+        if (hasCookies) {
             args.add("--cookies");
             args.add(COOKIES_FILE);
-        } else {
-            // No cookies: try clients that bypass datacenter IP detection
-            args.add("--extractor-args");
-            args.add("youtube:player_client=mweb,tv_embedded,ios,web");
         }
+        // Always try the bot-detection-bypass client chain; cookies (if present) authenticate the request
+        args.add("--extractor-args");
+        args.add("youtube:player_client=mweb,web,tv_embedded,ios");
         return args;
     }
 
