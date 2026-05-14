@@ -8,6 +8,9 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import dev.lavalink.youtube.clients.Tv;
+import dev.lavalink.youtube.clients.Web;
+import dev.lavalink.youtube.clients.Android;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
@@ -24,7 +27,11 @@ public class MusicManager {
     private MusicManager() {
         playerManager = new DefaultAudioPlayerManager();
 
-        YoutubeAudioSourceManager youtubeSource = new YoutubeAudioSourceManager();
+        // Tv = only OAuth-compatible client (handles age-restricted content with OAuth)
+        // Web + Android = fallback clients for regular content
+        YoutubeAudioSourceManager youtubeSource = new YoutubeAudioSourceManager(
+                true, new Tv(), new Web(), new Android()
+        );
         String oauthToken = System.getenv("YOUTUBE_OAUTH_TOKEN");
         if (oauthToken != null && !oauthToken.isBlank()) {
             System.out.println("[YouTube] Using saved OAuth token.");
