@@ -20,9 +20,8 @@ public class YtDlpExtractor {
                 : "ytsearch1:" + query;
 
         List<String> baseArgs = baseArgs();
-        // Most permissive format chain: try audio-only, then any combined, then anything with audio
         baseArgs.add("-f");
-        baseArgs.add("bestaudio[acodec!=none]/bestaudio*/best[acodec!=none]/best/worst");
+        baseArgs.add("bestaudio/best");
         baseArgs.add("--print");
         baseArgs.add("%(title)s");
         baseArgs.add("--print");
@@ -92,9 +91,13 @@ public class YtDlpExtractor {
             args.add("--cookies");
             args.add(COOKIES_FILE);
         }
-        // Always try the bot-detection-bypass client chain; cookies (if present) authenticate the request
+        // tv_embedded is the only client that:
+        //  - Bypasses YouTube's PO-token requirement (no "Sign in to confirm" on datacenter IPs)
+        //  - Returns the full format list including audio-only DASH streams
         args.add("--extractor-args");
-        args.add("youtube:player_client=mweb,web,tv_embedded,ios");
+        args.add("youtube:player_client=tv_embedded");
+        // Continue past per-video errors so search results still yield SOMETHING
+        args.add("--ignore-errors");
         return args;
     }
 
