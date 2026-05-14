@@ -77,16 +77,12 @@ public class YtDlpExtractor {
         args.add("--no-playlist");
         args.add("--quiet");
         args.add("--no-warnings");
-        boolean hasCookies = new File(COOKIES_FILE).exists();
-        if (hasCookies) {
-            // Web client has full format support when authenticated via cookies
+        // tv_embedded bypasses bot detection and has full format support
+        args.add("--extractor-args");
+        args.add("youtube:player_client=tv_embedded,ios,web");
+        if (new File(COOKIES_FILE).exists()) {
             args.add("--cookies");
             args.add(COOKIES_FILE);
-        } else {
-            // Android client bypasses bot detection when no cookies are available,
-            // but may have limited format availability
-            args.add("--extractor-args");
-            args.add("youtube:player_client=android,android_embedded,web");
         }
         return args;
     }
