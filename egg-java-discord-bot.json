@@ -23,9 +23,9 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!/bin/ash\nset -e\n\napk update\napk add --no-cache git curl\n\ncd /mnt/server\n\nif [ -n \"${GIT_REPO}\" ]; then\n    echo \">>> Cloning ${GIT_REPO}...\"\n    git clone \"${GIT_REPO}\" /tmp/bot-src\n    cd /tmp/bot-src\n\n    echo \">>> Downloading Maven...\"\n    curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar -xz -C /opt\n    export PATH=\"/opt/apache-maven-3.9.6/bin:$PATH\"\n\n    echo \">>> Building project...\"\n    mvn package -DskipTests --no-transfer-progress\n\n    echo \">>> Copying JAR to server directory...\"\n    cp target/*.jar /mnt/server/\n\n    echo \">>> Build complete. JAR files:\"\n    ls /mnt/server/*.jar\nelse\n    echo \">>> No GIT_REPO set.\"\n    echo \">>> Upload your compiled JAR via SFTP to the server directory.\"\n    echo \">>> Run: mvn package   then upload target/music-bot-1.0-SNAPSHOT.jar\"\nfi\n\necho \">>> Installation finished.\"",
+            "script": "#!/bin/bash\nset -e\n\napt-get update -y\napt-get install -y git curl\n\ncd /mnt/server\n\nif [ -n \"${GIT_REPO}\" ]; then\n    echo \">>> Cloning ${GIT_REPO}...\"\n    git clone \"${GIT_REPO}\" /tmp/bot-src\n    cd /tmp/bot-src\n\n    echo \">>> Downloading Maven...\"\n    curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar -xz -C /opt\n    export PATH=\"/opt/apache-maven-3.9.6/bin:$PATH\"\n\n    echo \">>> Building project...\"\n    mvn package -DskipTests --no-transfer-progress\n\n    echo \">>> Copying JAR to server directory...\"\n    cp target/*.jar /mnt/server/\n\n    echo \">>> Build complete. JAR files:\"\n    ls /mnt/server/*.jar\nelse\n    echo \">>> No GIT_REPO set.\"\n    echo \">>> Upload your compiled JAR via SFTP to the server directory.\"\n    echo \">>> Run: mvn package   then upload target/music-bot-1.0-SNAPSHOT.jar\"\nfi\n\necho \">>> Installation finished.\"",
             "container": "ghcr.io/pterodactyl/yolks:java_17",
-            "entrypoint": "ash"
+            "entrypoint": "bash"
         }
     },
     "variables": [
