@@ -77,12 +77,14 @@ public class YtDlpExtractor {
         args.add("--no-playlist");
         args.add("--quiet");
         args.add("--no-warnings");
-        // tv_embedded bypasses bot detection and has full format support
-        args.add("--extractor-args");
-        args.add("youtube:player_client=tv_embedded,ios,web");
         if (new File(COOKIES_FILE).exists()) {
+            // Web client with cookies has full format access — no extractor-args needed
             args.add("--cookies");
             args.add(COOKIES_FILE);
+        } else {
+            // No cookies: try clients that bypass datacenter IP detection
+            args.add("--extractor-args");
+            args.add("youtube:player_client=mweb,tv_embedded,ios,web");
         }
         return args;
     }
