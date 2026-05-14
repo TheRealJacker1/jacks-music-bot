@@ -53,7 +53,7 @@
             "name": "Max Memory (MB)",
             "description": "Maximum heap memory allocated to the JVM in megabytes.",
             "env_variable": "MAX_MEMORY",
-            "default_value": "512",
+            "default_value": "1024",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|numeric|min:128",

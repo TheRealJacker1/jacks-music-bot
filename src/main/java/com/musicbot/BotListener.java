@@ -67,6 +67,7 @@ public class BotListener extends ListenerAdapter {
             event.getChannel().sendMessage("Usage: `play <url or search query>`").queue();
             return;
         }
+        musicManager.getGuildMusicManager(event.getGuild());
         if (!joinVoiceChannel(event)) return;
         musicManager.loadAndPlay((TextChannel) event.getChannel(), event.getGuild(), args);
     }
