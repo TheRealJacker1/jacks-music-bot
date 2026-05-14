@@ -269,10 +269,14 @@ public class BotListener extends ListenerAdapter {
             }
             case "allowchannel", "removechannel" -> {
                 TextChannel target;
-                if (!event.getMessage().getMentions().getChannels().isEmpty()) {
-                    target = (TextChannel) event.getMessage().getMentions().getChannels().get(0);
+                List<TextChannel> mentionedText = event.getMessage().getMentions().getChannels(TextChannel.class);
+                if (!mentionedText.isEmpty()) {
+                    target = mentionedText.get(0);
+                } else if (event.getChannel() instanceof TextChannel tc) {
+                    target = tc;
                 } else {
-                    target = (TextChannel) event.getChannel();
+                    event.getChannel().sendMessage("Please mention a text channel, e.g. `allowchannel #general`").queue();
+                    return;
                 }
                 if (command.equals("allowchannel")) {
                     channelConfig.addChannel(guildId, target.getId());
