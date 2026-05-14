@@ -15,23 +15,31 @@ public class YtDlpExtractor {
                 ? query
                 : "ytsearch1:" + query;
 
-        // --print outputs title and duration, -g outputs the stream URL
         ProcessBuilder pb = new ProcessBuilder(
                 "./yt-dlp",
                 "--no-playlist",
-                "--no-warnings",
-                "-f", "bestaudio[ext=webm][acodec=opus]/bestaudio[acodec=opus]/bestaudio",
+                "-f", "bestaudio",
                 "--print", "%(title)s",
                 "--print", "%(duration)s",
                 "-g",
                 ytQuery
         );
         pb.directory(new File("."));
-        pb.redirectErrorStream(false);
 
         Process process = pb.start();
 
+        // Read stdout and stderr in parallel to avoid blocking
         List<String> lines = new ArrayList<>();
+        StringBuilder stderr = new StringBuilder();
+
+        Thread stderrThread = new Thread(() -> {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                String l;
+                while ((l = r.readLine()) != null) stderr.append(l).append("\n");
+            } catch (Exception ignored) {}
+        });
+        stderrThread.start();
+
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -39,14 +47,20 @@ public class YtDlpExtractor {
                 if (!trimmed.isEmpty()) lines.add(trimmed);
             }
         }
-        process.waitFor();
 
-        // Expect at least 3 lines: title, duration, stream URL
-        if (lines.size() < 3) return null;
+        int exitCode = process.waitFor();
+        stderrThread.join(2000);
+
+        // Log everything so it shows in the Pterodactyl console
+        System.err.println("[yt-dlp] exit=" + exitCode + " lines=" + lines.size());
+        System.err.println("[yt-dlp] stdout: " + lines);
+        if (!stderr.isEmpty()) System.err.println("[yt-dlp] stderr: " + stderr.toString().trim());
+
+        if (exitCode != 0 || lines.size() < 3) return null;
 
         String title    = lines.get(0);
         long durationMs = parseDuration(lines.get(1));
-        String url      = lines.get(lines.size() - 1); // URL is always last
+        String url      = lines.get(lines.size() - 1);
 
         if (!url.startsWith("http")) return null;
 
