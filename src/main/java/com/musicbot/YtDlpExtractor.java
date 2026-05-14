@@ -30,7 +30,9 @@ public class YtDlpExtractor {
         baseArgs.add(ytQuery);
 
         RunResult result = run(baseArgs);
-        if (!result.ok() || result.lines().size() < 3) {
+        // With --ignore-errors, yt-dlp may exit non-zero even when individual videos
+        // succeed (e.g. 1 of 5 search results works). Trust the line count, not the exit code.
+        if (result.lines().size() < 3) {
             throw new Exception(friendlyError(result.stderr()));
         }
 
@@ -55,7 +57,9 @@ public class YtDlpExtractor {
 
         RunResult result = run(args);
         List<SearchResult> results = new ArrayList<>();
-        if (!result.ok() || result.lines().isEmpty()) return results;
+        // Trust line count, not exit code — --ignore-errors makes yt-dlp exit non-zero
+        // even when some videos succeeded.
+        if (result.lines().isEmpty()) return results;
 
         List<String> lines = result.lines();
         for (int i = 0; i + 2 < lines.size(); i += 3) {

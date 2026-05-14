@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:jda.wiki)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
