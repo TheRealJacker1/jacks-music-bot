@@ -27,12 +27,17 @@ public class MusicManager {
         YoutubeAudioSourceManager youtubeSource = new YoutubeAudioSourceManager();
         String oauthToken = System.getenv("YOUTUBE_OAUTH_TOKEN");
         if (oauthToken != null && !oauthToken.isBlank()) {
-            // Use saved token — no interactive prompt needed
+            System.out.println("[YouTube] Using saved OAuth token.");
             youtubeSource.useOauth2(oauthToken, true);
         } else {
-            // No token set: triggers device auth flow on startup.
-            // Check the console for a URL + code, authorize once, then save the
-            // printed refresh token as the YOUTUBE_OAUTH_TOKEN server variable.
+            System.out.println("=================================================");
+            System.out.println("  YOUTUBE OAUTH SETUP REQUIRED");
+            System.out.println("  Watch for a URL + code below from the library.");
+            System.out.println("  Open the URL, enter the code, authorize it.");
+            System.out.println("  Then copy the refresh token that gets printed");
+            System.out.println("  and save it as YOUTUBE_OAUTH_TOKEN in Pterodactyl");
+            System.out.println("  Startup tab, then restart the server.");
+            System.out.println("=================================================");
             youtubeSource.useOauth2(null, false);
         }
 
