@@ -44,15 +44,13 @@ public class MusicManager {
         GuildMusicManager musicManager = getGuildMusicManager(guild);
         musicManager.boundChannel = channel;
 
-        channel.sendMessage("Searching...").queue();
+        if (!input.startsWith("http://") && !input.startsWith("https://")) {
+            channel.sendMessage("Searching...").queue();
+        }
 
         CompletableFuture.runAsync(() -> {
             try {
                 YtDlpExtractor.TrackInfo info = YtDlpExtractor.extract(input);
-                if (info == null) {
-                    channel.sendMessage("No results found for: `" + input + "`").queue();
-                    return;
-                }
 
                 final String title = info.title();
 
@@ -86,12 +84,7 @@ public class MusicManager {
                 });
 
             } catch (Exception e) {
-                String msg = e.getMessage();
-                if (msg != null && (msg.contains("No such file") || msg.contains("error=2"))) {
-                    channel.sendMessage("yt-dlp not found. Please reinstall the server.").queue();
-                } else {
-                    channel.sendMessage("Error loading track: " + msg).queue();
-                }
+                channel.sendMessage("❌ " + e.getMessage()).queue();
             }
         });
     }

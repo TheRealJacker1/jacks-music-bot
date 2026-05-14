@@ -4,12 +4,20 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class BotListener extends ListenerAdapter {
@@ -17,6 +25,9 @@ public class BotListener extends ListenerAdapter {
     private final ChannelConfig channelConfig = new ChannelConfig();
     private final PrefixConfig prefixConfig = new PrefixConfig();
     private final MusicManager musicManager = MusicManager.getInstance();
+
+    // userId -> pending search results (for song selection menu)
+    private final Map<String, List<YtDlpExtractor.SearchResult>> pendingSelections = new ConcurrentHashMap<>();
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
@@ -60,6 +71,55 @@ public class BotListener extends ListenerAdapter {
         }
     }
 
+    // ── Song selection buttons ────────────────────────────────────────────────
+
+    @Override
+    public void onButtonInteraction(ButtonInteractionEvent event) {
+        String id = event.getComponentId();
+        if (!id.startsWith("song:")) return;
+
+        String userId = event.getUser().getId();
+
+        // Cancel button
+        if (id.equals("song:cancel:" + userId)) {
+            pendingSelections.remove(userId);
+            event.editMessage("Selection cancelled.").setComponents(Collections.emptyList()).queue();
+            return;
+        }
+
+        // Validate format: song:guildId:userId:index
+        String[] parts = id.split(":");
+        if (parts.length != 4) return;
+
+        String buttonUserId = parts[2];
+        if (!userId.equals(buttonUserId)) {
+            event.reply("Only the person who searched can pick a song.").setEphemeral(true).queue();
+            return;
+        }
+
+        List<YtDlpExtractor.SearchResult> results = pendingSelections.remove(userId);
+        if (results == null) {
+            event.editMessage("Selection expired. Search again.").setComponents(Collections.emptyList()).queue();
+            return;
+        }
+
+        int index;
+        try {
+            index = Integer.parseInt(parts[3]);
+        } catch (NumberFormatException e) {
+            return;
+        }
+        if (index < 0 || index >= results.size()) return;
+
+        YtDlpExtractor.SearchResult picked = results.get(index);
+        String youtubeUrl = "https://www.youtube.com/watch?v=" + picked.videoId();
+
+        event.editMessage("Loading: **" + picked.title() + "**").setComponents(Collections.emptyList()).queue();
+
+        if (!ensureVoice(event.getGuild(), event.getMember(), event.getChannel().asTextChannel())) return;
+        musicManager.loadAndPlay(event.getChannel().asTextChannel(), event.getGuild(), youtubeUrl);
+    }
+
     // ── Music commands ────────────────────────────────────────────────────────
 
     private void handlePlay(MessageReceivedEvent event, String args) {
@@ -67,9 +127,61 @@ public class BotListener extends ListenerAdapter {
             event.getChannel().sendMessage("Usage: `play <url or search query>`").queue();
             return;
         }
+
         musicManager.getGuildMusicManager(event.getGuild());
         if (!joinVoiceChannel(event)) return;
-        musicManager.loadAndPlay((TextChannel) event.getChannel(), event.getGuild(), args);
+
+        boolean isUrl = args.startsWith("http://") || args.startsWith("https://");
+        if (isUrl) {
+            musicManager.loadAndPlay((TextChannel) event.getChannel(), event.getGuild(), args);
+        } else {
+            showSearchResults(event, args);
+        }
+    }
+
+    private void showSearchResults(MessageReceivedEvent event, String query) {
+        event.getChannel().sendMessage("Searching for **" + query + "**...").queue();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<YtDlpExtractor.SearchResult> results = YtDlpExtractor.searchMultiple(query, 5);
+                if (results.isEmpty()) {
+                    event.getChannel().sendMessage("No results found for: **" + query + "**").queue();
+                    return;
+                }
+
+                String userId  = event.getAuthor().getId();
+                String guildId = event.getGuild().getId();
+                pendingSelections.put(userId, results);
+
+                // Auto-expire after 60s
+                CompletableFuture.delayedExecutor(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .execute(() -> pendingSelections.remove(userId));
+
+                StringBuilder sb = new StringBuilder("**Pick a song** (expires in 60s):\n\n");
+                for (int i = 0; i < results.size(); i++) {
+                    YtDlpExtractor.SearchResult r = results.get(i);
+                    sb.append("`").append(i + 1).append(".` **").append(r.title()).append("**");
+                    if (r.durationMs() > 0) sb.append(" [").append(formatTime(r.durationMs() / 1000)).append("]");
+                    sb.append("\n");
+                }
+
+                List<Button> buttons = new ArrayList<>();
+                for (int i = 0; i < results.size(); i++) {
+                    String label = (i + 1) + ". " + truncate(results.get(i).title(), 60);
+                    buttons.add(Button.primary("song:" + guildId + ":" + userId + ":" + i, label));
+                }
+
+                event.getChannel().sendMessage(sb.toString())
+                        .addComponents(
+                                ActionRow.of(buttons),
+                                ActionRow.of(Button.danger("song:cancel:" + userId, "✕ Cancel")))
+                        .queue();
+
+            } catch (Exception e) {
+                event.getChannel().sendMessage("❌ " + e.getMessage()).queue();
+            }
+        });
     }
 
     private void handleSkip(MessageReceivedEvent event) {
@@ -196,17 +308,35 @@ public class BotListener extends ListenerAdapter {
         return true;
     }
 
+    private boolean ensureVoice(net.dv8tion.jda.api.entities.Guild guild,
+                                 net.dv8tion.jda.api.entities.Member member,
+                                 TextChannel channel) {
+        AudioManager audioManager = guild.getAudioManager();
+        if (audioManager.isConnected()) return true;
+        GuildVoiceState voiceState = member.getVoiceState();
+        if (voiceState == null || !voiceState.inAudioChannel()) {
+            channel.sendMessage("You need to be in a voice channel first.").queue();
+            return false;
+        }
+        audioManager.openAudioConnection(voiceState.getChannel());
+        return true;
+    }
+
     private String formatTime(long seconds) {
         long mins = seconds / 60;
         long secs = seconds % 60;
         return String.format("%d:%02d", mins, secs);
     }
 
+    private static String truncate(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
+    }
+
     private void sendHelp(MessageReceivedEvent event, String prefix) {
         String p = prefix;
         event.getChannel().sendMessage(
                 "**Music commands:**\n" +
-                "`" + p + "play <url/search>` — play a song or add it to the queue\n" +
+                "`" + p + "play <url/search>` — search for a song and pick from a list\n" +
                 "`" + p + "skip` — skip the current song\n" +
                 "`" + p + "stop` — stop playback and clear the queue\n" +
                 "`" + p + "pause` — pause playback\n" +
