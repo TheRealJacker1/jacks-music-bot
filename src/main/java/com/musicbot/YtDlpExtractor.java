@@ -51,12 +51,11 @@ public class YtDlpExtractor {
         int exitCode = process.waitFor();
         stderrThread.join(2000);
 
-        // Log everything so it shows in the Pterodactyl console
-        System.err.println("[yt-dlp] exit=" + exitCode + " lines=" + lines.size());
-        System.err.println("[yt-dlp] stdout: " + lines);
-        if (!stderr.isEmpty()) System.err.println("[yt-dlp] stderr: " + stderr.toString().trim());
-
-        if (exitCode != 0 || lines.size() < 3) return null;
+        if (exitCode != 0 || lines.size() < 3) {
+            System.err.println("[yt-dlp] failed — exit=" + exitCode + " lines=" + lines.size());
+            if (!stderr.isEmpty()) System.err.println("[yt-dlp] stderr: " + stderr.toString().trim());
+            return null;
+        }
 
         String title    = lines.get(0);
         long durationMs = parseDuration(lines.get(1));
