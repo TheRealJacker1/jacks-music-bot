@@ -60,6 +60,16 @@
             "field_type": "text"
         },
         {
+            "name": "YouTube OAuth Token",
+            "description": "YouTube OAuth2 refresh token. Leave blank on first run — the bot will print a URL+code in the console. Authorize it, copy the printed refresh token, paste it here, then restart.",
+            "env_variable": "YOUTUBE_OAUTH_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
             "name": "Git Repository URL",
             "description": "(Optional) Public Git repo URL to clone and auto-build during installation. Leave blank to upload your JAR manually via SFTP.",
             "env_variable": "GIT_REPO",

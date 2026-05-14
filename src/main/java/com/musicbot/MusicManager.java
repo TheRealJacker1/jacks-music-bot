@@ -24,8 +24,19 @@ public class MusicManager {
     private MusicManager() {
         playerManager = new DefaultAudioPlayerManager();
 
-        // Register the maintained YouTube source, excluding the broken built-in one
-        playerManager.registerSourceManager(new YoutubeAudioSourceManager());
+        YoutubeAudioSourceManager youtubeSource = new YoutubeAudioSourceManager();
+        String oauthToken = System.getenv("YOUTUBE_OAUTH_TOKEN");
+        if (oauthToken != null && !oauthToken.isBlank()) {
+            // Use saved token — no interactive prompt needed
+            youtubeSource.useOauth2(oauthToken, true);
+        } else {
+            // No token set: triggers device auth flow on startup.
+            // Check the console for a URL + code, authorize once, then save the
+            // printed refresh token as the YOUTUBE_OAUTH_TOKEN server variable.
+            youtubeSource.useOauth2(null, false);
+        }
+
+        playerManager.registerSourceManager(youtubeSource);
         AudioSourceManagers.registerRemoteSources(playerManager,
                 com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager.class);
         AudioSourceManagers.registerLocalSource(playerManager);
