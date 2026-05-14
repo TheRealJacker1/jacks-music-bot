@@ -23,7 +23,12 @@ public class TrackScheduler extends AudioEventAdapter {
     }
 
     public void queue(AudioTrack track) {
-        if (!player.startTrack(track, true)) {
+        boolean started = player.startTrack(track, true);
+        System.err.println("[Music] startTrack returned " + started
+                + " | playing=" + (player.getPlayingTrack() != null)
+                + " | paused=" + player.isPaused()
+                + " | track=" + getTitle(track));
+        if (!started) {
             queue.offer(track);
         }
     }
