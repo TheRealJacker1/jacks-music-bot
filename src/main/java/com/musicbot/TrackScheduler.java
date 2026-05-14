@@ -42,6 +42,14 @@ public class TrackScheduler extends AudioEventAdapter {
     }
 
     @Override
+    public void onTrackStart(AudioPlayer player, AudioTrack track) {
+        System.err.println("[Music] Track started: " + getTitle(track));
+        if (manager.boundChannel != null) {
+            manager.boundChannel.sendMessage("Now playing: **" + getTitle(track) + "**").queue();
+        }
+    }
+
+    @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
         if (endReason.mayStartNext) {
             skip();
