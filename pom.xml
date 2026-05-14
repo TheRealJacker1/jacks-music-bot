@@ -37,6 +37,13 @@
             <version>2.2.2</version>
         </dependency>
 
+        <!-- YouTube source plugin (replaces broken built-in YouTube support) -->
+        <dependency>
+            <groupId>dev.lavalink.youtube</groupId>
+            <artifactId>v2</artifactId>
+            <version>1.11.2</version>
+        </dependency>
+
         <!-- SLF4J logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
