@@ -1,7 +1,10 @@
 package com.musicbot;
 
+import moe.kyokobot.libdave.NativeDaveFactory;
+import moe.kyokobot.libdave.jda.LDJDADaveSessionFactory;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class Main {
@@ -21,10 +24,12 @@ public class Main {
                         GatewayIntent.GUILD_MESSAGES,
                         GatewayIntent.GUILD_VOICE_STATES
                 )
+                .setAudioModuleConfig(new AudioModuleConfig()
+                        .withDaveSessionFactory(new LDJDADaveSessionFactory(new NativeDaveFactory())))
                 .addEventListeners(new BotListener())
                 .build();
 
         jda.awaitReady();
-        System.out.println("Bot is online as: " + jda.getSelfUser().getAsTag());
+        System.out.println("Bot is online as: " + jda.getSelfUser().getName());
     }
 }
